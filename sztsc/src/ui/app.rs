@@ -4,7 +4,6 @@ use std::rc::Rc;
 use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
-use winit::event::RawKeyEvent;
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
@@ -47,6 +46,12 @@ impl ApplicationHandler<UiEvent> for App {
         }
 
         match event {
+            winit::event::WindowEvent::KeyboardInput { event, .. } => {
+                state
+                    .rdp_event_tx
+                    .send(RdpEvent::KeyboardInputed(event.state, event.physical_key));
+            }
+
             winit::event::WindowEvent::CursorMoved {
                 position: PhysicalPosition { x, y },
                 ..
@@ -91,32 +96,6 @@ impl ApplicationHandler<UiEvent> for App {
         }
     }
 
-    fn device_event(
-        &mut self,
-        event_loop: &winit::event_loop::ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
-        event: winit::event::DeviceEvent,
-    ) {
-        event_loop.set_control_flow(ControlFlow::Wait);
-
-        let Some(state) = &mut self.state else {
-            return;
-        };
-
-        match event {
-            winit::event::DeviceEvent::Key(RawKeyEvent {
-                state: key_state,
-                physical_key,
-            }) => {
-                state
-                    .rdp_event_tx
-                    .send(RdpEvent::KeyboardInputed(key_state, physical_key));
-            }
-
-            _ => {}
-        };
-    }
-
     fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: UiEvent) {
         match event {
             UiEvent::Connected {
@@ -132,6 +111,7 @@ impl ApplicationHandler<UiEvent> for App {
                 let attrs =
                     Window::default_attributes().with_inner_size(PhysicalSize::new(width, height));
                 let window = event_loop.create_window(attrs).unwrap();
+                window.set_ime_allowed(false);
                 let window = Rc::new(window);
 
                 let context = Context::new(window.clone()).unwrap();

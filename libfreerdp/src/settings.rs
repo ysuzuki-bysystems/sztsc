@@ -29,7 +29,7 @@ impl Settings {
     }
 
     pub fn set_server_port(&mut self, val: u16) {
-        self.set_i32(
+        self.set_u32(
             lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_ServerPort,
             val as u32,
         )
@@ -45,6 +45,31 @@ impl Settings {
 
     pub fn set_aad_security(&mut self, val: bool) {
         self.set_bool(lib::FreeRDP_Settings_Keys_Bool_FreeRDP_AadSecurity, val);
+    }
+
+    pub fn set_keyboard_layout(&mut self, val: u32) {
+        self.set_u32(
+            lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_KeyboardLayout,
+            val,
+        );
+    }
+
+    pub fn set_keyboard_type(&mut self, val: u32) {
+        self.set_u32(lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_KeyboardType, val);
+    }
+
+    pub fn set_keyboard_subtype(&mut self, val: u32) {
+        self.set_u32(
+            lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_KeyboardSubType,
+            val,
+        );
+    }
+
+    pub fn set_keyboard_function_key(&mut self, val: u32) {
+        self.set_u32(
+            lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_KeyboardFunctionKey,
+            val,
+        );
     }
 
     pub fn get_desktop_width(&self) -> u32 {
@@ -64,7 +89,7 @@ impl Settings {
         }
     }
 
-    fn set_i32(&mut self, id: lib::FreeRDP_Settings_Keys_UInt32, v: u32) {
+    fn set_u32(&mut self, id: lib::FreeRDP_Settings_Keys_UInt32, v: u32) {
         let result = unsafe { lib::freerdp_settings_set_uint32(self.raw.as_ptr(), id, v) };
         if result != 1 {
             panic!("{id}");
