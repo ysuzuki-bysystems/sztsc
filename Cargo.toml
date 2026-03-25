@@ -1,0 +1,9 @@
+[workspace]
+resolver = "3"
+
+members = [
+    "libfreerdp-sys",
+    "libfreerdp",
+    "sztsc",
+    "sztsc-authcode",
+]

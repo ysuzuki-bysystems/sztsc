@@ -1,0 +1,77 @@
+use std::os::fd::RawFd;
+use std::ptr;
+use std::result::Result as StdResult;
+
+use libfreerdp_sys as lib;
+use thiserror::Error;
+
+pub use callbacks::CallbackError;
+pub use callbacks::CallbackResult;
+pub use callbacks::Callbacks;
+pub use freerdp::Freerdp;
+pub use freerdp::OwnedFreerdp;
+pub use gdi::Gdi;
+pub use gdi::Invalid;
+pub use gdi::OwnedGdi;
+pub use gdi::PixelFormat;
+pub use lib::HANDLE;
+pub use rdp_context::OwnedRdpContext;
+pub use rdp_context::RdpContext;
+pub use rdp_input::PtrFlags;
+pub use rdp_input::RdpInput;
+pub use settings::Settings;
+
+mod callbacks;
+mod freerdp;
+mod gdi;
+mod rdp_context;
+mod rdp_input;
+mod settings;
+mod trampolines;
+
+// FIXME
+#[derive(Debug, Error)]
+pub enum FreerdpError {
+    #[error("freerdp_new")]
+    FreerdpNew,
+
+    #[error("freerdp_settings_new")]
+    FreerdpSettingsNew,
+
+    #[error("freerdp_context_new_ex")]
+    FreerdpContextNewEx,
+
+    #[error("freerdp_connect")]
+    FreerdpConnect,
+
+    #[error("init_gdi")]
+    InitGdi,
+
+    #[error("failed to setting: {0}")]
+    SettingsSet(String),
+
+    #[error("alread created")]
+    AlreadyCreated,
+
+    #[error("WaitForMultipleObjects")]
+    WaitForMultipleObjects,
+
+    #[error("freerdp_input_send_keyboard_event")]
+    FreerdpInputSendKeyboardEvent,
+}
+
+pub type Result<T> = StdResult<T, FreerdpError>;
+
+pub fn fd_to_handle(fd: RawFd) -> HANDLE {
+    unsafe { lib::CreateFileDescriptorEventW(ptr::null_mut(), 0, 0, fd, 1) }
+}
+
+pub fn poll<T: AsRef<[HANDLE]>>(events: T) -> Result<()> {
+    let events = events.as_ref();
+    let r =
+        unsafe { lib::WaitForMultipleObjects(events.len() as u32, events.as_ptr(), 0, 0xFFFFFFFF) };
+    if r == 0xFFFFFFFF {
+        return Err(FreerdpError::WaitForMultipleObjects);
+    }
+    Ok(())
+}
