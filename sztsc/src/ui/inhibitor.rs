@@ -152,7 +152,10 @@ where
         + Dispatch<ZwpKeyboardShortcutsInhibitorV1, ()>
         + 'static,
 {
-    pub(super) fn try_new(window: &Window, state: S) -> Result<Option<Self>, WaylandInhibitorError> {
+    pub(super) fn try_new(
+        window: &Window,
+        state: S,
+    ) -> Result<Option<Self>, WaylandInhibitorError> {
         let RawDisplayHandle::Wayland(display) = window.display_handle()?.as_raw() else {
             return Ok(None);
         };

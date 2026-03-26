@@ -1,5 +1,6 @@
 use std::num::NonZeroU32;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
@@ -7,11 +8,11 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
+use super::inhibitor::InhibitState;
+use super::inhibitor::WaylandInhibitor;
 use crate::event::UiEvent;
 use crate::frame_buffer::SharedFrameBuffer;
 use crate::rdp::{RdpEvent, RdpEventSender};
-use super::inhibitor::InhibitState;
-use super::inhibitor::WaylandInhibitor;
 
 #[derive(Debug)]
 struct State {
@@ -23,9 +24,16 @@ struct State {
     inhibitor: Option<WaylandInhibitor<InhibitState>>,
 }
 
+#[derive(Debug)]
+struct ResizeState {
+    pending: PhysicalSize<u32>,
+    deadline: Instant,
+}
+
 #[derive(Default, Debug)]
 pub struct App {
     state: Option<State>,
+    resize_state: Option<ResizeState>,
 }
 
 impl ApplicationHandler<UiEvent> for App {
@@ -44,6 +52,7 @@ impl ApplicationHandler<UiEvent> for App {
         let Some(state) = &mut self.state else {
             return;
         };
+
         if state.window.id() != window_id {
             return;
         }
@@ -74,6 +83,15 @@ impl ApplicationHandler<UiEvent> for App {
 
             winit::event::WindowEvent::CloseRequested => {
                 state.rdp_event_tx.send(RdpEvent::DisconnectRequested);
+            }
+
+            winit::event::WindowEvent::Resized(size) => {
+                const DEBOUNCE: Duration = Duration::from_millis(500);
+                let deadline = Instant::now() + DEBOUNCE;
+                self.resize_state = Some(ResizeState {
+                    pending: size,
+                    deadline,
+                });
             }
 
             winit::event::WindowEvent::RedrawRequested => {
@@ -121,7 +139,7 @@ impl ApplicationHandler<UiEvent> for App {
                     Err(err) => {
                         eprint!("{err}");
                         None
-                    },
+                    }
                 };
 
                 let context = Context::new(window.clone()).unwrap();
@@ -152,10 +170,24 @@ impl ApplicationHandler<UiEvent> for App {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let Some(state) = &mut self.state else {
             return;
         };
+
+        if let Some(resize) = self.resize_state.take() {
+            if Instant::now() < resize.deadline {
+                event_loop.set_control_flow(ControlFlow::WaitUntil(resize.deadline));
+                self.resize_state = Some(resize);
+            } else {
+                state.rdp_event_tx.send(RdpEvent::Resized(
+                    resize.pending.width,
+                    resize.pending.height,
+                ));
+                event_loop.set_control_flow(ControlFlow::Wait);
+            }
+        };
+
         let Some(inhibitor) = &mut state.inhibitor else {
             return;
         };

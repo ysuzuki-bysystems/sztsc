@@ -18,6 +18,7 @@ pub enum RdpEvent {
     // FIXME type leaked
     MouseInputed(ElementState, MouseButton),
     CursorMoved(f64, f64),
+    Resized(u32, u32),
 }
 
 pub(super) struct RdpEventReciever {

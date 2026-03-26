@@ -240,6 +240,10 @@ fn handle_rdp_event(
             let mut input = cx.input();
             input.send_mouse_event(lib::PtrFlags::MOVE, x, y)?;
         }
+
+        RdpEvent::Resized(w, h) => {
+            dbg!(w, h);
+        }
     };
 
     Ok(ControlFlow::Continue(()))
@@ -270,9 +274,9 @@ impl RemoteDesktop {
         let mut settings = lib::Settings::new()?;
         settings.set_server_host_name("suzuki-w11");
         settings.set_server_port(3389);
-        //settings.set_username("u");
-        //settings.set_password("123qweASD");
-        settings.set_aad_security(true);
+        settings.set_username("u");
+        settings.set_password("123qweASD");
+        //settings.set_aad_security(true);
 
         // jp106
         settings.set_keyboard_layout(0x00000411);
