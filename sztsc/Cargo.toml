@@ -13,4 +13,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 softbuffer = "0.4.8"
 thiserror = "2.0.18"
 url = "2.5.8"
+wayland-backend = "0.3.14"
+wayland-client = "0.31.13"
+wayland-protocols = "0.32.11"
 winit = "0.30.13"

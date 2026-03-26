@@ -3386,6 +3386,9 @@ dependencies = [
  "softbuffer",
  "thiserror 2.0.18",
  "url",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
  "winit",
 ]
 

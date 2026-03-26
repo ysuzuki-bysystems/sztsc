@@ -10,6 +10,8 @@ use winit::window::Window;
 use crate::event::UiEvent;
 use crate::frame_buffer::SharedFrameBuffer;
 use crate::rdp::{RdpEvent, RdpEventSender};
+use super::inhibitor::InhibitState;
+use super::inhibitor::WaylandInhibitor;
 
 #[derive(Debug)]
 struct State {
@@ -18,6 +20,7 @@ struct State {
     surface: Surface<Rc<Window>, Rc<Window>>,
     fb: SharedFrameBuffer,
     rdp_event_tx: RdpEventSender,
+    inhibitor: Option<WaylandInhibitor<InhibitState>>,
 }
 
 #[derive(Default, Debug)]
@@ -113,6 +116,13 @@ impl ApplicationHandler<UiEvent> for App {
                 let window = event_loop.create_window(attrs).unwrap();
                 window.set_ime_allowed(false);
                 let window = Rc::new(window);
+                let inhibitor = match WaylandInhibitor::try_new(&window, InhibitState::default()) {
+                    Ok(inhibitor) => inhibitor,
+                    Err(err) => {
+                        eprint!("{err}");
+                        None
+                    },
+                };
 
                 let context = Context::new(window.clone()).unwrap();
                 let surface = Surface::new(&context, window.clone()).unwrap();
@@ -123,6 +133,7 @@ impl ApplicationHandler<UiEvent> for App {
                     surface,
                     fb,
                     rdp_event_tx: event_tx,
+                    inhibitor,
                 });
             }
 
@@ -139,5 +150,17 @@ impl ApplicationHandler<UiEvent> for App {
 
             UiEvent::Done => event_loop.exit(),
         }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
+        let Some(state) = &mut self.state else {
+            return;
+        };
+        let Some(inhibitor) = &mut state.inhibitor else {
+            return;
+        };
+        if let Err(err) = inhibitor.dispatch_pending() {
+            eprint!("{err}");
+        };
     }
 }
