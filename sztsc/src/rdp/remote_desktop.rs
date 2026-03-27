@@ -83,6 +83,10 @@ impl lib::Callbacks for RemoteDesktop {
         Ok(())
     }
 
+    fn pre_connect(&mut self, _context: &mut libfreerdp::Freerdp) -> lib::CallbackResult<()> {
+        Ok(())
+    }
+
     fn post_connect(&mut self, instance: &mut lib::Freerdp) -> lib::CallbackResult<()> {
         instance
             .init_gdi(libfreerdp::PixelFormat::Bgr32)
@@ -243,6 +247,12 @@ fn handle_rdp_event(
 
         RdpEvent::Resized(w, h) => {
             dbg!(w, h);
+            /*
+            let Some(mut disp) = cx.disp_client_context() else {
+                return Ok(ControlFlow::Continue(()));
+            };
+            disp.send_monitor_layout(w, h)?;
+            */
         }
     };
 

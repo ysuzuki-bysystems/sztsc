@@ -1,7 +1,7 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    let cfg = pkg_config::probe_library("freerdp3").unwrap();
+    let cfg = pkg_config::probe_library("freerdp-client3").unwrap();
     for lib in cfg.libs {
         println!("cargo:rustc-link-lib={lib}");
     }
@@ -16,11 +16,11 @@ fn main() {
                 .collect::<Vec<_>>(),
         )
         .clang_arg("-Wno-deprecated-declarations")
-        .allowlist_var("PTR_FLAGS_.*")
-        .allowlist_type("")
-        .allowlist_file("")
+        .allowlist_var("PTR_FLAGS_.*|.*_CHANNEL_NAME")
+        .allowlist_type("DrdynvcClientContext|DispClientContext")
+        //.allowlist_file("")
         .allowlist_function("(freerdp|gdi)_.*|WaitForMultipleObjects|CreateFileDescriptorEventW")
-        .allowlist_item("")
+        //.allowlist_item("")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Unable to generate bindings");

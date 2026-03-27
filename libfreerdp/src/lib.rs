@@ -20,6 +20,7 @@ pub use rdp_context::RdpContext;
 pub use rdp_input::PtrFlags;
 pub use rdp_input::RdpInput;
 pub use settings::Settings;
+pub use disp_client_context::DispClientContext;
 
 mod callbacks;
 mod freerdp;
@@ -28,6 +29,7 @@ mod rdp_context;
 mod rdp_input;
 mod settings;
 mod trampolines;
+mod disp_client_context;
 
 // FIXME
 #[derive(Debug, Error)]
@@ -58,6 +60,9 @@ pub enum FreerdpError {
 
     #[error("freerdp_input_send_keyboard_event")]
     FreerdpInputSendKeyboardEvent,
+
+    #[error("freerdp_register_addin_provider")]
+    FreerdpRegisterAddinProvider,
 }
 
 pub type Result<T> = StdResult<T, FreerdpError>;

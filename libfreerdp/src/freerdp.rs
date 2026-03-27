@@ -87,10 +87,7 @@ impl OwnedFreerdp {
 
         let p = unsafe { raw.as_mut() };
         p.ContextSize = size_of::<RawRdpContext>();
-        p.PostConnect = Some(trampolines::post_connect);
-        p.PostDisconnect = Some(trampolines::post_disconnect);
-        p.VerifyX509Certificate = Some(trampolines::verify_x509_certificate);
-        p.GetAccessToken = Some(trampolines::get_access_token);
+        trampolines::setup_instance(p)?;
 
         let inner = Freerdp { raw };
         let result = OwnedFreerdp {

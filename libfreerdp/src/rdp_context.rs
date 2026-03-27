@@ -12,6 +12,7 @@ use super::OwnedGdi;
 use super::RdpInput;
 use super::Settings;
 use super::lib;
+use super::DispClientContext;
 
 #[repr(C)]
 pub(super) struct RawRdpContext {
@@ -51,6 +52,16 @@ impl RdpContext {
     pub fn input<'a>(&'a self) -> RdpInput<'a> {
         let raw = unsafe { self.raw.as_ref() };
         RdpInput::from_raw(raw.common.input).unwrap()
+    }
+
+    pub fn disp_client_context(&self) -> Option<DispClientContext> {
+        let raw = self.raw.as_ptr().cast();
+        let raw = unsafe { lib::freerdp_client_get_instance(raw).cast::<lib::DispClientContext>() };
+        let Some(raw) = ptr::NonNull::new(raw) else {
+            return None;
+        };
+
+        Some(DispClientContext::from_raw(raw))
     }
 }
 

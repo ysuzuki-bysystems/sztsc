@@ -12,6 +12,7 @@ pub enum CallbackError {
 pub type CallbackResult<T> = ::std::result::Result<T, CallbackError>;
 
 pub trait Callbacks {
+    fn pre_connect(&mut self, context: &mut Freerdp) -> CallbackResult<()>;
     fn post_connect(&mut self, context: &mut Freerdp) -> CallbackResult<()>;
     fn post_disconnect(&mut self, instance: &mut Freerdp) -> CallbackResult<()>;
 

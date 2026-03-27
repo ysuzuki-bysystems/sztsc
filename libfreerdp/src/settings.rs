@@ -72,6 +72,10 @@ impl Settings {
         );
     }
 
+    pub fn set_dynamic_resolution_update(&mut self, val: bool) {
+        self.set_bool(lib::FreeRDP_Settings_Keys_Bool_FreeRDP_DynamicResolutionUpdate, val);
+    }
+
     pub fn get_desktop_width(&self) -> u32 {
         self.get_u32(lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_DesktopWidth)
     }
