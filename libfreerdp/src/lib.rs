@@ -8,8 +8,8 @@ use thiserror::Error;
 pub use callbacks::CallbackError;
 pub use callbacks::CallbackResult;
 pub use callbacks::Callbacks;
+pub use disp_client_context::DispClientContext;
 pub use freerdp::Freerdp;
-pub use freerdp::OwnedFreerdp;
 pub use gdi::Gdi;
 pub use gdi::Invalid;
 pub use gdi::OwnedGdi;
@@ -20,16 +20,17 @@ pub use rdp_context::RdpContext;
 pub use rdp_input::PtrFlags;
 pub use rdp_input::RdpInput;
 pub use settings::Settings;
-pub use disp_client_context::DispClientContext;
+pub use dvc::Dvc;
 
 mod callbacks;
+mod disp_client_context;
 mod freerdp;
 mod gdi;
 mod rdp_context;
 mod rdp_input;
 mod settings;
 mod trampolines;
-mod disp_client_context;
+mod dvc;
 
 // FIXME
 #[derive(Debug, Error)]
@@ -40,11 +41,17 @@ pub enum FreerdpError {
     #[error("freerdp_settings_new")]
     FreerdpSettingsNew,
 
+    #[error("new_client_context")]
+    NewClientContext,
+
     #[error("freerdp_context_new_ex")]
     FreerdpContextNewEx,
 
     #[error("freerdp_connect")]
     FreerdpConnect,
+
+    #[error("drdynvc: null")]
+    NoDrdynvc,
 
     #[error("init_gdi")]
     InitGdi,
@@ -54,6 +61,9 @@ pub enum FreerdpError {
 
     #[error("alread created")]
     AlreadyCreated,
+
+    #[error("alread connected")]
+    AlreadyConnected,
 
     #[error("WaitForMultipleObjects")]
     WaitForMultipleObjects,
@@ -79,4 +89,8 @@ pub fn poll<T: AsRef<[HANDLE]>>(events: T) -> Result<()> {
         return Err(FreerdpError::WaitForMultipleObjects);
     }
     Ok(())
+}
+
+pub fn new_client_context<C: Callbacks + 'static>(callbacks: C) -> Result<OwnedRdpContext> {
+    OwnedRdpContext::new_client_context(callbacks)
 }

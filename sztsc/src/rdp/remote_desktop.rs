@@ -1,8 +1,9 @@
+use std::cell::RefCell;
 use std::ops::ControlFlow;
 use std::os::fd::AsRawFd;
 use std::ptr;
+use std::rc::Rc;
 
-use libfreerdp::PtrFlags;
 use thiserror::Error;
 use winit::event::ElementState;
 use winit::event::MouseButton;
@@ -43,6 +44,7 @@ pub struct RemoteDesktop {
     fb: SharedFrameBuffer,
     event_tx: RdpEventSender,
     event_rx: Option<RdpEventReciever>,
+    shared: Rc<RefCell<SharedContext>>,
 }
 
 impl lib::Callbacks for RemoteDesktop {
@@ -178,6 +180,24 @@ impl lib::Callbacks for RemoteDesktop {
 
         Ok(())
     }
+
+    fn on_channel_connected(&mut self, dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
+        match dvc {
+            lib::Dvc::Disp(disp) => {
+                self.shared.borrow_mut().disp = Some(disp);
+            }
+        };
+        Ok(())
+    }
+
+    fn on_channel_disconnected(&mut self, _dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
+struct SharedContext {
+    disp: Option<lib::DispClientContext>,
 }
 
 #[derive(Debug, Default)]
@@ -194,6 +214,7 @@ fn handle_rdp_event(
     event: RdpEvent,
     cx: &mut lib::RdpContext,
     mouse_pos: &mut MousePosition,
+    shared: Rc<RefCell<SharedContext>>,
 ) -> Result<ControlFlow<()>> {
     match event {
         crate::rdp::RdpEvent::DisconnectRequested => {
@@ -218,17 +239,17 @@ fn handle_rdp_event(
             let x = mouse_pos.0;
             let y = mouse_pos.1;
 
-            let mut flags = PtrFlags::empty();
+            let mut flags = lib::PtrFlags::empty();
             match state {
                 ElementState::Pressed => {
-                    flags |= PtrFlags::DOWN;
+                    flags |= lib::PtrFlags::DOWN;
                 }
                 ElementState::Released => {}
             };
             match button {
-                MouseButton::Left => flags |= PtrFlags::BUTTON1,
-                MouseButton::Right => flags |= PtrFlags::BUTTON2,
-                MouseButton::Middle => flags |= PtrFlags::BUTTON3,
+                MouseButton::Left => flags |= lib::PtrFlags::BUTTON1,
+                MouseButton::Right => flags |= lib::PtrFlags::BUTTON2,
+                MouseButton::Middle => flags |= lib::PtrFlags::BUTTON3,
                 _ => {}
             }
 
@@ -246,13 +267,10 @@ fn handle_rdp_event(
         }
 
         RdpEvent::Resized(w, h) => {
-            dbg!(w, h);
-            /*
-            let Some(mut disp) = cx.disp_client_context() else {
-                return Ok(ControlFlow::Continue(()));
+            if let Some(disp) = &mut shared.clone().borrow_mut().disp {
+                disp.send_monitor_layout(w, h)?;
             };
-            disp.send_monitor_layout(w, h)?;
-            */
+
         }
     };
 
@@ -271,6 +289,7 @@ impl RemoteDesktop {
             fb: FrameBuffer::new_shared(),
             event_tx,
             event_rx: Some(event_rx),
+            shared: Default::default(),
         }
     }
 
@@ -278,10 +297,10 @@ impl RemoteDesktop {
         let Some(event_rx) = self.event_rx.take() else {
             return Err(RemoteDesktopError::AlreadyCreated);
         };
+        let shared = self.shared.clone();
 
-        let mut freerdp = lib::OwnedFreerdp::new(self)?;
-
-        let mut settings = lib::Settings::new()?;
+        let mut cx = lib::new_client_context(self)?;
+        let mut settings = cx.as_ref().settings();
         settings.set_server_host_name("suzuki-w11");
         settings.set_server_port(3389);
         settings.set_username("u");
@@ -294,8 +313,7 @@ impl RemoteDesktop {
         settings.set_keyboard_subtype(0);
         settings.set_keyboard_function_key(12);
 
-        let mut cx = freerdp.new_context_ex(&settings)?;
-        let connection = freerdp.connect()?;
+        cx.connect()?;
 
         let event_fd = event_rx.as_raw_fd();
         let mut handles = [ptr::null_mut(); 64 + 1];
@@ -312,7 +330,7 @@ impl RemoteDesktop {
 
             while let Some(events) = event_rx.recv() {
                 for event in events {
-                    let r = handle_rdp_event(event, cx.as_mut(), &mut mouse_pos)?;
+                    let r = handle_rdp_event(event, cx.as_mut(), &mut mouse_pos, shared.clone())?;
                     if r.is_break() {
                         break 'event_loop;
                     }
@@ -320,9 +338,7 @@ impl RemoteDesktop {
             }
         }
 
-        drop(connection);
         drop(cx);
-        drop(freerdp);
 
         Ok(())
     }
