@@ -1,8 +1,8 @@
 use thiserror::Error;
 
+use super::Dvc;
 use super::Freerdp;
 use super::RdpContext;
-use super::Dvc;
 
 #[derive(Debug, Error)]
 pub enum CallbackError {

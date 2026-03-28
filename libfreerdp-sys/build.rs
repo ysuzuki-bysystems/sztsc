@@ -19,7 +19,7 @@ fn main() {
         .allowlist_var("PTR_FLAGS_.*|.*_CHANNEL_NAME|RDP_CLIENT_INTERFACE_VERSION")
         .allowlist_type("DrdynvcClientContext|DispClientContext")
         //.allowlist_file("")
-        .allowlist_function("(freerdp|gdi)_.*|WaitForMultipleObjects|CreateFileDescriptorEventW")
+        .allowlist_function("(freerdp|gdi)_.*|WaitForMultipleObjects|CreateFileDescriptorEventW|PubSub_Subscribe|PubSub_Unsubscribe")
         //.allowlist_item("")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()

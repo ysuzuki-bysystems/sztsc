@@ -1,5 +1,5 @@
 use std::ffi::CStr;
-use std::ffi::c_char;
+use std::ffi::c_int;
 use std::ffi::c_void;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -8,16 +8,16 @@ use std::ptr;
 use crate::FreerdpError;
 
 use super::Callbacks;
+use super::DispClientContext;
+use super::Dvc;
 use super::Gdi;
 use super::HANDLE;
 use super::OwnedGdi;
 use super::RdpInput;
+use super::Result;
 use super::Settings;
 use super::lib;
-use super::DispClientContext;
-use super::Result;
 use super::trampolines;
-use super::Dvc;
 
 #[repr(C)]
 pub(super) struct RawRdpContext {
@@ -67,6 +67,21 @@ impl RdpContext {
 
         Some(DispClientContext::from_raw(raw))
     }
+
+    pub fn send_button_event(&mut self, relative: bool, flags: u16, x: i32, y: i32) -> Result<()> {
+        let raw = unsafe { self.raw.as_mut() };
+
+        unsafe {
+            lib::freerdp_client_send_button_event(
+                &mut raw.common,
+                relative as lib::BOOL,
+                flags,
+                x,
+                y,
+            )
+        };
+        Ok(())
+    }
 }
 
 pub struct OwnedRdpContext {
@@ -78,9 +93,7 @@ impl Drop for OwnedRdpContext {
     fn drop(&mut self) {
         if self.connected {
             let raw = unsafe { self.inner.raw.as_mut() };
-            unsafe {
-                lib::freerdp_disconnect(raw.common.context.instance)
-            };
+            unsafe { lib::freerdp_disconnect(raw.common.context.instance) };
         }
 
         unsafe {
@@ -101,9 +114,14 @@ impl AsMut<RdpContext> for OwnedRdpContext {
     }
 }
 
-unsafe extern "C" fn global_init() -> lib::BOOL { 1 }
+unsafe extern "C" fn global_init() -> lib::BOOL {
+    1
+}
 unsafe extern "C" fn global_uninit() {}
-unsafe extern "C" fn client_new(instance: *mut lib::freerdp, _context: *mut lib::rdpContext) -> lib::BOOL {
+unsafe extern "C" fn client_new(
+    instance: *mut lib::freerdp,
+    _context: *mut lib::rdpContext,
+) -> lib::BOOL {
     let Some(mut instance) = ptr::NonNull::new(instance) else {
         eprintln!("instance: null");
         return 0;
@@ -122,86 +140,80 @@ unsafe extern "C" fn client_free(_instance: *mut lib::freerdp, context: *mut lib
     let _ = mem::replace(&mut context.callbacks, MaybeUninit::zeroed());
 }
 
-unsafe extern "C" fn on_channel_connected(cx: *mut lib::DrdynvcClientContext, name: *const c_char, p_interface: *mut c_void) -> lib::DWORD {
-    let Some(mut cx) = ptr::NonNull::new(cx) else {
-        eprintln!("cx: null");
-        return 1;
-    };
-    let cx = unsafe { cx.as_mut() };
+unsafe extern "C" fn on_channel_connected(
+    cx: *mut c_void,
+    e: *mut lib::ChannelConnectedEventArgs,
+) -> c_int {
+    let cx = cx.cast::<RawRdpContext>();
+    let cx = unsafe { cx.as_mut() }.unwrap();
 
-    let custom = cx.custom.cast::<RawRdpContext>();
-    let Some(mut custom) = ptr::NonNull::new(custom) else {
-        eprintln!("custom: null");
-        return 1;
-    };
-    let custom = unsafe { custom.as_mut() };
+    let e = unsafe { e.as_mut() }.unwrap();
+    let name = unsafe { CStr::from_ptr(e.name) };
 
-    let name = unsafe { CStr::from_ptr(name) };
     match name.to_bytes_with_nul() {
         name if lib::DISP_DVC_CHANNEL_NAME == name => {
-            let Some(raw) = ptr::NonNull::new(p_interface.cast::<lib::DispClientContext>()) else {
+            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
                 eprintln!("p_interface: null");
                 return 1;
             };
             let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
-            if let Err(err) = custom.callbacks_mut().on_channel_connected(dvc) {
+            if let Err(err) = cx.callbacks_mut().on_channel_connected(dvc) {
                 eprintln!("{err}");
                 return 1;
             };
         }
 
         _ => {
+            unsafe {
+                lib::freerdp_client_OnChannelConnectedEventHandler(cx as *mut _ as *mut c_void, e)
+            };
         }
     }
 
     0
 }
 
-unsafe extern "C" fn on_channel_disconnected(cx: *mut lib::DrdynvcClientContext, name: *const c_char, p_interface: *mut c_void) -> lib::DWORD {
-    let Some(mut cx) = ptr::NonNull::new(cx) else {
-        eprintln!("cx: null");
-        return 1;
-    };
-    let cx = unsafe { cx.as_mut() };
+unsafe extern "C" fn on_channel_disconnected(
+    cx: *mut c_void,
+    e: *mut lib::ChannelDisconnectedEventArgs,
+) -> c_int {
+    let cx = cx.cast::<RawRdpContext>();
+    let cx = unsafe { cx.as_mut() }.unwrap();
 
-    let custom = cx.custom.cast::<RawRdpContext>();
-    let Some(mut custom) = ptr::NonNull::new(custom) else {
-        eprintln!("custom: null");
-        return 1;
-    };
-    let custom = unsafe { custom.as_mut() };
+    let e = unsafe { e.as_mut() }.unwrap();
+    let name = unsafe { CStr::from_ptr(e.name) };
 
-    let name = unsafe { CStr::from_ptr(name) };
     match name.to_bytes_with_nul() {
         name if lib::DISP_DVC_CHANNEL_NAME == name => {
-            let Some(raw) = ptr::NonNull::new(p_interface.cast::<lib::DispClientContext>()) else {
+            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
                 eprintln!("p_interface: null");
                 return 1;
             };
             let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
-            if let Err(err) = custom.callbacks_mut().on_channel_disconnected(dvc) {
+            if let Err(err) = cx.callbacks_mut().on_channel_disconnected(dvc) {
                 eprintln!("{err}");
                 return 1;
             };
         }
 
         _ => {
+            unsafe {
+                lib::freerdp_client_OnChannelDisconnectedEventHandler(
+                    cx as *mut _ as *mut c_void,
+                    e,
+                )
+            };
         }
     }
 
-    0
-}
-
-unsafe extern "C" fn on_channel_attached(_cx: *mut lib::DrdynvcClientContext, _name: *const c_char, _p_interface: *mut c_void) -> lib::DWORD {
-    0
-}
-
-unsafe extern "C" fn on_channel_detached(_cx: *mut lib::DrdynvcClientContext, _name: *const c_char, _p_interface: *mut c_void) -> lib::DWORD {
     0
 }
 
 impl OwnedRdpContext {
-    pub(super) fn new_client_context<C: Callbacks + 'static>(callbacks: C, settings: Settings) -> Result<Self> {
+    pub(super) fn new_client_context<C: Callbacks + 'static>(
+        callbacks: C,
+        settings: Settings,
+    ) -> Result<Self> {
         let settings = settings.raw.as_ptr();
 
         let mut entrypoint = lib::RDP_CLIENT_ENTRY_POINTS {
@@ -216,7 +228,7 @@ impl OwnedRdpContext {
             ClientStop: None,
             settings,
         };
-        let context = unsafe { lib::freerdp_client_context_new(&mut entrypoint)};
+        let context = unsafe { lib::freerdp_client_context_new(&mut entrypoint) };
         let Some(mut context) = ptr::NonNull::new(context.cast::<RawRdpContext>()) else {
             return Err(FreerdpError::NewClientContext);
         };
@@ -224,7 +236,10 @@ impl OwnedRdpContext {
         r.callbacks.write(Box::new(callbacks));
         r.initialized_gdi = None;
 
-        Ok(OwnedRdpContext { inner: RdpContext { raw: context }, connected: false })
+        Ok(OwnedRdpContext {
+            inner: RdpContext::new(context),
+            connected: false,
+        })
     }
 
     pub fn connect(&mut self) -> Result<()> {
@@ -240,20 +255,9 @@ impl OwnedRdpContext {
 
         self.connected = true;
 
-        // FIXME!! May be wrong.
-        let channels = raw.common.context.channels;
-        let drdynvc = unsafe { lib::freerdp_channels_get_static_channel_interface(channels, lib::DRDYNVC_SVC_CHANNEL_NAME.as_ptr() as *mut c_char)};
-        let Some(drdynvc) = ptr::NonNull::new(drdynvc) else {
-            return Err(FreerdpError::FreerdpConnect);
-        };
-        let drdynvc = unsafe { drdynvc.cast::<lib::DrdynvcClientContext>().as_mut() };
-        // Clear default callbacks
-        // https://github.com/FreeRDP/FreeRDP/blob/32eb45f99728704999cda8715eb8a6b1c35d7891/libfreerdp/core/client.c#L554-L557
-        drdynvc.custom = raw as *mut _ as *mut c_void;
-        drdynvc.OnChannelConnected = Some(on_channel_connected);
-        drdynvc.OnChannelDisconnected = Some(on_channel_disconnected);
-        drdynvc.OnChannelAttached = Some(on_channel_attached);
-        drdynvc.OnChannelDetached = Some(on_channel_detached);
+        let pubsub = raw.common.context.pubSub;
+        unsafe { super::pubsub::subscribe_channel_connected(pubsub, on_channel_connected) };
+        unsafe { super::pubsub::subscribe_channel_disconnected(pubsub, on_channel_disconnected) };
 
         Ok(())
     }
