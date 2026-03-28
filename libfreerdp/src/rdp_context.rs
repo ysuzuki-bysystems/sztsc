@@ -201,7 +201,9 @@ unsafe extern "C" fn on_channel_detached(_cx: *mut lib::DrdynvcClientContext, _n
 }
 
 impl OwnedRdpContext {
-    pub(super) fn new_client_context<C: Callbacks + 'static>(callbacks: C) -> Result<Self> {
+    pub(super) fn new_client_context<C: Callbacks + 'static>(callbacks: C, settings: Settings) -> Result<Self> {
+        let settings = settings.raw.as_ptr();
+
         let mut entrypoint = lib::RDP_CLIENT_ENTRY_POINTS {
             Size: size_of::<lib::RDP_CLIENT_ENTRY_POINTS>() as lib::DWORD,
             Version: lib::RDP_CLIENT_INTERFACE_VERSION,
@@ -212,7 +214,7 @@ impl OwnedRdpContext {
             ClientFree: Some(client_free),
             ClientStart: None,
             ClientStop: None,
-            settings: ptr::null_mut(),
+            settings,
         };
         let context = unsafe { lib::freerdp_client_context_new(&mut entrypoint)};
         let Some(mut context) = ptr::NonNull::new(context.cast::<RawRdpContext>()) else {

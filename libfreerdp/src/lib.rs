@@ -91,6 +91,6 @@ pub fn poll<T: AsRef<[HANDLE]>>(events: T) -> Result<()> {
     Ok(())
 }
 
-pub fn new_client_context<C: Callbacks + 'static>(callbacks: C) -> Result<OwnedRdpContext> {
-    OwnedRdpContext::new_client_context(callbacks)
+pub fn new_client_context<C: Callbacks + 'static>(callbacks: C, settings: Settings) -> Result<OwnedRdpContext> {
+    OwnedRdpContext::new_client_context(callbacks, settings)
 }

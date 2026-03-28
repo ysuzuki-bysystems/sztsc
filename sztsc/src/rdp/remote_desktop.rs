@@ -214,7 +214,7 @@ fn handle_rdp_event(
     event: RdpEvent,
     cx: &mut lib::RdpContext,
     mouse_pos: &mut MousePosition,
-    shared: Rc<RefCell<SharedContext>>,
+    shared: &Rc<RefCell<SharedContext>>,
 ) -> Result<ControlFlow<()>> {
     match event {
         crate::rdp::RdpEvent::DisconnectRequested => {
@@ -299,8 +299,7 @@ impl RemoteDesktop {
         };
         let shared = self.shared.clone();
 
-        let mut cx = lib::new_client_context(self)?;
-        let mut settings = cx.as_ref().settings();
+        let mut settings = lib::Settings::new()?;
         settings.set_server_host_name("suzuki-w11");
         settings.set_server_port(3389);
         settings.set_username("u");
@@ -312,6 +311,8 @@ impl RemoteDesktop {
         settings.set_keyboard_type(4);
         settings.set_keyboard_subtype(0);
         settings.set_keyboard_function_key(12);
+
+        let mut cx = lib::new_client_context(self, settings)?;
 
         cx.connect()?;
 
@@ -330,7 +331,7 @@ impl RemoteDesktop {
 
             while let Some(events) = event_rx.recv() {
                 for event in events {
-                    let r = handle_rdp_event(event, cx.as_mut(), &mut mouse_pos, shared.clone())?;
+                    let r = handle_rdp_event(event, cx.as_mut(), &mut mouse_pos, &shared)?;
                     if r.is_break() {
                         break 'event_loop;
                     }
