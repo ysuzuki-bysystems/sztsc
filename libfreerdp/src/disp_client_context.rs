@@ -14,7 +14,6 @@ impl DispClientContext {
     }
 
     pub fn send_monitor_layout(&mut self, w: u32, h: u32) -> Result<()> {
-        dbg!(w, h);
         let mut mon = lib::DISPLAY_CONTROL_MONITOR_LAYOUT {
             Flags: 0,
             Left: 0,
