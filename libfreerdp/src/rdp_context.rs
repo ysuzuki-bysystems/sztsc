@@ -1,4 +1,3 @@
-use std::ffi::c_void;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
@@ -140,8 +139,11 @@ unsafe extern "C" fn client_free(_instance: *mut lib::freerdp, context: *mut lib
 impl OwnedRdpContext {
     pub(super) fn new_client_context<C: Callbacks + 'static>(
         callbacks: C,
-        settings: Settings,
+        mut settings: Settings,
     ) -> Result<Self> {
+        let p = unsafe { settings.raw.as_mut() };
+        p.DynamicResolutionUpdate = 1;
+        p.SupportDisplayControl = 1;
         let settings = settings.raw.as_ptr();
 
         let mut entrypoint = lib::RDP_CLIENT_ENTRY_POINTS {
@@ -163,6 +165,8 @@ impl OwnedRdpContext {
         let r = unsafe { context.as_mut() };
         r.callbacks.write(Box::new(callbacks));
         r.initialized_gdi = None;
+
+        unsafe { lib::freerdp_client_start(context.as_ptr().cast()) };
 
         Ok(OwnedRdpContext {
             inner: RdpContext::new(context),
@@ -188,18 +192,17 @@ impl OwnedRdpContext {
 
     pub fn shall_disconnect(&mut self) -> bool {
         let raw = self.inner.raw;
-        let r = unsafe { lib::freerdp_shall_disconnect_context(raw.as_ptr() as *const _) };
+        let r = unsafe { lib::freerdp_shall_disconnect_context(raw.cast().as_ptr()) };
         r != 0
     }
 
-    pub fn get_event_handles<T: AsMut<[HANDLE]>>(&mut self, mut events: T) -> usize {
-        let events = events.as_mut();
-        let raw = self.inner.raw;
+    pub fn get_event_handles(&mut self, events: &mut [HANDLE]) -> usize {
+        let raw = self.inner.raw.cast();
         let r = unsafe {
             lib::freerdp_get_event_handles(
-                raw.as_ptr() as *mut _,
-                events.as_mut_ptr() as *mut *mut c_void,
-                events.len() as u32,
+                raw.as_ptr(),
+                events.as_mut_ptr(),
+                events.len() as lib::DWORD,
             )
         };
 
@@ -208,7 +211,7 @@ impl OwnedRdpContext {
 
     pub fn check_event_handles(&mut self) -> bool {
         let raw = self.inner.raw;
-        let r = unsafe { lib::freerdp_check_event_handles(raw.as_ptr() as *mut _) };
+        let r = unsafe { lib::freerdp_check_event_handles(raw.cast().as_ptr()) };
         r != 0
     }
 }

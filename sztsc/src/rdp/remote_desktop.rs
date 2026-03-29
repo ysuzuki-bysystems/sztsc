@@ -270,7 +270,6 @@ fn handle_rdp_event(
             if let Some(disp) = &mut shared.clone().borrow_mut().disp {
                 disp.send_monitor_layout(w, h)?;
             };
-
         }
     };
 

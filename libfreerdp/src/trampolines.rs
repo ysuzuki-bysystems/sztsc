@@ -7,12 +7,12 @@ use std::ffi::c_void;
 use std::ptr;
 use std::ptr::NonNull;
 
+use super::DispClientContext;
+use super::Dvc;
 use super::Freerdp;
 use super::RdpContext;
 use super::lib;
 use super::rdp_context::RawRdpContext;
-use super::Dvc;
-use super::DispClientContext;
 
 unsafe extern "C" fn begin_paint(context: *mut lib::rdp_context) -> lib::BOOL {
     let mut raw = NonNull::new(context as *mut RawRdpContext).unwrap();
@@ -49,7 +49,6 @@ unsafe extern "C" fn on_channel_connected(
 
     let e = unsafe { e.as_mut() }.unwrap();
     let name = unsafe { CStr::from_ptr(e.name) };
-    println!("{name:?}");
 
     match name.to_bytes_with_nul() {
         name if lib::DISP_DVC_CHANNEL_NAME == name => {
@@ -110,7 +109,6 @@ unsafe extern "C" fn on_channel_disconnected(
     0
 }
 
-
 unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
     let mut raw = NonNull::new(instance).unwrap();
     let context = unsafe { raw.as_mut() }.context;
@@ -123,7 +121,6 @@ unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
     let pubsub = context.common.context.pubSub;
     unsafe { super::pubsub::subscribe_channel_connected(pubsub, on_channel_connected) };
     unsafe { super::pubsub::subscribe_channel_disconnected(pubsub, on_channel_disconnected) };
-
 
     let callbacks = context.callbacks_mut();
 
