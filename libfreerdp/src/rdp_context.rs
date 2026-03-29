@@ -1,5 +1,3 @@
-use std::ffi::CStr;
-use std::ffi::c_int;
 use std::ffi::c_void;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -9,7 +7,6 @@ use crate::FreerdpError;
 
 use super::Callbacks;
 use super::DispClientContext;
-use super::Dvc;
 use super::Gdi;
 use super::HANDLE;
 use super::OwnedGdi;
@@ -140,75 +137,6 @@ unsafe extern "C" fn client_free(_instance: *mut lib::freerdp, context: *mut lib
     let _ = mem::replace(&mut context.callbacks, MaybeUninit::zeroed());
 }
 
-unsafe extern "C" fn on_channel_connected(
-    cx: *mut c_void,
-    e: *mut lib::ChannelConnectedEventArgs,
-) -> c_int {
-    let cx = cx.cast::<RawRdpContext>();
-    let cx = unsafe { cx.as_mut() }.unwrap();
-
-    let e = unsafe { e.as_mut() }.unwrap();
-    let name = unsafe { CStr::from_ptr(e.name) };
-
-    match name.to_bytes_with_nul() {
-        name if lib::DISP_DVC_CHANNEL_NAME == name => {
-            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
-                eprintln!("p_interface: null");
-                return 1;
-            };
-            let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
-            if let Err(err) = cx.callbacks_mut().on_channel_connected(dvc) {
-                eprintln!("{err}");
-                return 1;
-            };
-        }
-
-        _ => {
-            unsafe {
-                lib::freerdp_client_OnChannelConnectedEventHandler(cx as *mut _ as *mut c_void, e)
-            };
-        }
-    }
-
-    0
-}
-
-unsafe extern "C" fn on_channel_disconnected(
-    cx: *mut c_void,
-    e: *mut lib::ChannelDisconnectedEventArgs,
-) -> c_int {
-    let cx = cx.cast::<RawRdpContext>();
-    let cx = unsafe { cx.as_mut() }.unwrap();
-
-    let e = unsafe { e.as_mut() }.unwrap();
-    let name = unsafe { CStr::from_ptr(e.name) };
-
-    match name.to_bytes_with_nul() {
-        name if lib::DISP_DVC_CHANNEL_NAME == name => {
-            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
-                eprintln!("p_interface: null");
-                return 1;
-            };
-            let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
-            if let Err(err) = cx.callbacks_mut().on_channel_disconnected(dvc) {
-                eprintln!("{err}");
-                return 1;
-            };
-        }
-
-        _ => {
-            unsafe {
-                lib::freerdp_client_OnChannelDisconnectedEventHandler(
-                    cx as *mut _ as *mut c_void,
-                    e,
-                )
-            };
-        }
-    }
-
-    0
-}
-
 impl OwnedRdpContext {
     pub(super) fn new_client_context<C: Callbacks + 'static>(
         callbacks: C,
@@ -254,10 +182,6 @@ impl OwnedRdpContext {
         }
 
         self.connected = true;
-
-        let pubsub = raw.common.context.pubSub;
-        unsafe { super::pubsub::subscribe_channel_connected(pubsub, on_channel_connected) };
-        unsafe { super::pubsub::subscribe_channel_disconnected(pubsub, on_channel_disconnected) };
 
         Ok(())
     }

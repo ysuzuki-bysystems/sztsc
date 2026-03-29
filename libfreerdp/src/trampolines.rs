@@ -3,6 +3,7 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::ffi::c_char;
 use std::ffi::c_int;
+use std::ffi::c_void;
 use std::ptr;
 use std::ptr::NonNull;
 
@@ -10,6 +11,8 @@ use super::Freerdp;
 use super::RdpContext;
 use super::lib;
 use super::rdp_context::RawRdpContext;
+use super::Dvc;
+use super::DispClientContext;
 
 unsafe extern "C" fn begin_paint(context: *mut lib::rdp_context) -> lib::BOOL {
     let mut raw = NonNull::new(context as *mut RawRdpContext).unwrap();
@@ -37,6 +40,77 @@ unsafe extern "C" fn end_paint(context: *mut lib::rdp_context) -> lib::BOOL {
     1
 }
 
+unsafe extern "C" fn on_channel_connected(
+    cx: *mut c_void,
+    e: *mut lib::ChannelConnectedEventArgs,
+) -> c_int {
+    let cx = cx.cast::<RawRdpContext>();
+    let cx = unsafe { cx.as_mut() }.unwrap();
+
+    let e = unsafe { e.as_mut() }.unwrap();
+    let name = unsafe { CStr::from_ptr(e.name) };
+    println!("{name:?}");
+
+    match name.to_bytes_with_nul() {
+        name if lib::DISP_DVC_CHANNEL_NAME == name => {
+            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
+                eprintln!("p_interface: null");
+                return 1;
+            };
+            let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
+            if let Err(err) = cx.callbacks_mut().on_channel_connected(dvc) {
+                eprintln!("{err}");
+                return 1;
+            };
+        }
+
+        _ => {
+            unsafe {
+                lib::freerdp_client_OnChannelConnectedEventHandler(cx as *mut _ as *mut c_void, e)
+            };
+        }
+    }
+
+    0
+}
+
+unsafe extern "C" fn on_channel_disconnected(
+    cx: *mut c_void,
+    e: *mut lib::ChannelDisconnectedEventArgs,
+) -> c_int {
+    let cx = cx.cast::<RawRdpContext>();
+    let cx = unsafe { cx.as_mut() }.unwrap();
+
+    let e = unsafe { e.as_mut() }.unwrap();
+    let name = unsafe { CStr::from_ptr(e.name) };
+
+    match name.to_bytes_with_nul() {
+        name if lib::DISP_DVC_CHANNEL_NAME == name => {
+            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
+                eprintln!("p_interface: null");
+                return 1;
+            };
+            let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
+            if let Err(err) = cx.callbacks_mut().on_channel_disconnected(dvc) {
+                eprintln!("{err}");
+                return 1;
+            };
+        }
+
+        _ => {
+            unsafe {
+                lib::freerdp_client_OnChannelDisconnectedEventHandler(
+                    cx as *mut _ as *mut c_void,
+                    e,
+                )
+            };
+        }
+    }
+
+    0
+}
+
+
 unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
     let mut raw = NonNull::new(instance).unwrap();
     let context = unsafe { raw.as_mut() }.context;
@@ -45,6 +119,11 @@ unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
         return 0;
     };
     let context = unsafe { context.as_mut() };
+
+    let pubsub = context.common.context.pubSub;
+    unsafe { super::pubsub::subscribe_channel_connected(pubsub, on_channel_connected) };
+    unsafe { super::pubsub::subscribe_channel_disconnected(pubsub, on_channel_disconnected) };
+
 
     let callbacks = context.callbacks_mut();
 
