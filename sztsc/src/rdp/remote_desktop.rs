@@ -253,9 +253,7 @@ fn handle_rdp_event(
                 _ => {}
             }
 
-            // TODO send_button_event
-            let mut input = cx.input();
-            input.send_mouse_event(flags, x, y)?;
+            cx.send_button_event(false, flags, x as i32, y as i32)?;
         }
 
         crate::rdp::RdpEvent::CursorMoved(x, y) => {
@@ -263,7 +261,7 @@ fn handle_rdp_event(
             let x = mouse_pos.0;
             let y = mouse_pos.1;
 
-            cx.send_button_event(false, 2048, x as i32, y as i32)?;
+            cx.send_button_event(false, lib::PtrFlags::MOVE, x as i32, y as i32)?;
         }
 
         RdpEvent::Resized(w, h) => {

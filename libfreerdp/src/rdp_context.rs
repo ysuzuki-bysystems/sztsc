@@ -5,10 +5,10 @@ use std::ptr;
 use crate::FreerdpError;
 
 use super::Callbacks;
-use super::DispClientContext;
 use super::Gdi;
 use super::HANDLE;
 use super::OwnedGdi;
+use super::PtrFlags;
 use super::RdpInput;
 use super::Result;
 use super::Settings;
@@ -54,24 +54,20 @@ impl RdpContext {
         RdpInput::from_raw(raw.common.context.input).unwrap()
     }
 
-    pub fn disp_client_context(&mut self) -> Option<DispClientContext> {
-        let raw = self.raw.as_ptr().cast();
-        let raw = unsafe { lib::freerdp_client_get_instance(raw).cast::<lib::DispClientContext>() };
-        let Some(raw) = ptr::NonNull::new(raw) else {
-            return None;
-        };
-
-        Some(DispClientContext::from_raw(raw))
-    }
-
-    pub fn send_button_event(&mut self, relative: bool, flags: u16, x: i32, y: i32) -> Result<()> {
+    pub fn send_button_event(
+        &mut self,
+        relative: bool,
+        flags: PtrFlags,
+        x: i32,
+        y: i32,
+    ) -> Result<()> {
         let raw = unsafe { self.raw.as_mut() };
 
         unsafe {
             lib::freerdp_client_send_button_event(
                 &mut raw.common,
                 relative as lib::BOOL,
-                flags,
+                flags.bits(),
                 x,
                 y,
             )

@@ -16,9 +16,9 @@ pub use gdi::Invalid;
 pub use gdi::OwnedGdi;
 pub use gdi::PixelFormat;
 pub use lib::HANDLE;
+pub use ptr_flags::PtrFlags;
 pub use rdp_context::OwnedRdpContext;
 pub use rdp_context::RdpContext;
-pub use rdp_input::PtrFlags;
 pub use rdp_input::RdpInput;
 pub use settings::Settings;
 
@@ -27,6 +27,7 @@ mod disp_client_context;
 mod dvc;
 mod freerdp;
 mod gdi;
+mod ptr_flags;
 mod pubsub;
 mod rdp_context;
 mod rdp_input;
