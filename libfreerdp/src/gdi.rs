@@ -58,6 +58,11 @@ impl<'a> Gdi<'a> {
         Some(Self { raw })
     }
 
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<()> {
+        unsafe { lib::gdi_resize(self.raw, width, height) };
+        Ok(())
+    }
+
     pub fn invalid(&self) -> Option<Invalid<'a>> {
         let raw = &self.raw;
 

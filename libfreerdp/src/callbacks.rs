@@ -32,6 +32,8 @@ pub trait Callbacks {
         req_cnf: &str,
     ) -> CallbackResult<String>;
 
+    fn desktop_resize(&mut self, instance: &mut RdpContext) -> CallbackResult<()>;
+
     fn begin_paint(&mut self, instance: &mut RdpContext) -> CallbackResult<()>;
     fn end_paint(&mut self, instance: &mut RdpContext) -> CallbackResult<()>;
 

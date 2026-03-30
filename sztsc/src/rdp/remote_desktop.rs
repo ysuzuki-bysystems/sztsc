@@ -121,6 +121,31 @@ impl lib::Callbacks for RemoteDesktop {
         Ok(())
     }
 
+    fn on_channel_connected(&mut self, dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
+        match dvc {
+            lib::Dvc::Disp(disp) => {
+                self.shared.borrow_mut().disp = Some(disp);
+            }
+        };
+        Ok(())
+    }
+
+    fn on_channel_disconnected(&mut self, _dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
+        Ok(())
+    }
+
+    fn desktop_resize(&mut self, cx: &mut lib::RdpContext) -> libfreerdp::CallbackResult<()> {
+        let settings = cx.settings();
+        let Some(mut gdi) = cx.gdi() else {
+            return Ok(());
+        };
+
+        gdi.resize(settings.get_desktop_width(), settings.get_desktop_height())
+            .map_err(|v| lib::CallbackError::Any(v.to_string()))?;
+
+        Ok(())
+    }
+
     fn begin_paint(&mut self, cx: &mut lib::RdpContext) -> libfreerdp::CallbackResult<()> {
         let Some(gdi) = cx.gdi() else { return Ok(()) };
 
@@ -178,19 +203,6 @@ impl lib::Callbacks for RemoteDesktop {
         self.dispatch(UiEvent::Updated)
             .map_err(|e| lib::CallbackError::Any(e.to_string()))?;
 
-        Ok(())
-    }
-
-    fn on_channel_connected(&mut self, dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
-        match dvc {
-            lib::Dvc::Disp(disp) => {
-                self.shared.borrow_mut().disp = Some(disp);
-            }
-        };
-        Ok(())
-    }
-
-    fn on_channel_disconnected(&mut self, _dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
         Ok(())
     }
 }
