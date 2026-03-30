@@ -136,6 +136,7 @@ unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
     unsafe { super::pubsub::subscribe_channel_disconnected(pubsub, on_channel_disconnected) };
 
     // TODO
+    /*
     let mut keyboard_layout = 0;
     unsafe { lib::freerdp_detect_keyboard_layout_from_system_locale(&mut keyboard_layout) };
     if keyboard_layout != 0 {
@@ -147,6 +148,7 @@ unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
             )
         };
     }
+    */
 
     let callbacks = context.callbacks_mut();
 
