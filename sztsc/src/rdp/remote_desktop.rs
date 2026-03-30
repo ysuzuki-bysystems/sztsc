@@ -130,7 +130,12 @@ impl lib::Callbacks for RemoteDesktop {
         Ok(())
     }
 
-    fn on_channel_disconnected(&mut self, _dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
+    fn on_channel_disconnected(&mut self, dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
+        match dvc {
+            lib::Dvc::Disp(_) => {
+                self.shared.borrow_mut().disp = None;
+            }
+        };
         Ok(())
     }
 
