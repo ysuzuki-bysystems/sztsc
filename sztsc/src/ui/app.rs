@@ -5,8 +5,10 @@ use std::time::{Duration, Instant};
 use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
 use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::event::ElementState;
 use winit::event_loop::ControlFlow;
-use winit::window::Window;
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window::{Fullscreen, Window};
 
 use super::inhibitor::InhibitState;
 use super::inhibitor::WaylandInhibitor;
@@ -30,10 +32,33 @@ struct ResizeState {
     deadline: Instant,
 }
 
+#[derive(Debug, Default)]
+struct FullScreenHotKeyState {
+    ctrl_right: bool,
+    shift_right: bool,
+    arrow_up: bool,
+}
+
+impl FullScreenHotKeyState {
+    fn is_all_after_update(&mut self, state: ElementState, key: PhysicalKey) -> bool {
+        match key {
+            PhysicalKey::Code(key) => match key {
+                KeyCode::ControlRight => self.ctrl_right = state == ElementState::Pressed,
+                KeyCode::ShiftRight => self.shift_right = state == ElementState::Pressed,
+                KeyCode::ArrowUp => self.arrow_up = state == ElementState::Pressed,
+                _ => return false,
+            },
+            _ => return false,
+        }
+        self.ctrl_right && self.shift_right && self.arrow_up
+    }
+}
+
 #[derive(Default, Debug)]
 pub struct App {
     state: Option<State>,
     resize_state: Option<ResizeState>,
+    full_screen_hot_key_state: FullScreenHotKeyState,
 }
 
 impl ApplicationHandler<UiEvent> for App {
@@ -59,6 +84,21 @@ impl ApplicationHandler<UiEvent> for App {
 
         match event {
             winit::event::WindowEvent::KeyboardInput { event, .. } => {
+                if self
+                    .full_screen_hot_key_state
+                    .is_all_after_update(event.state, event.physical_key)
+                {
+                    if state.window.fullscreen().is_some() {
+                        state.window.set_fullscreen(None);
+                    } else {
+                        state
+                            .window
+                            .set_fullscreen(Some(Fullscreen::Borderless(None)));
+                    }
+
+                    return;
+                }
+
                 state
                     .rdp_event_tx
                     .send(RdpEvent::KeyboardInputed(event.state, event.physical_key));
