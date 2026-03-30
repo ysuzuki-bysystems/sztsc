@@ -15,7 +15,7 @@ impl DispClientContext {
 
     pub fn send_monitor_layout(&mut self, w: u32, h: u32) -> Result<()> {
         let mut mon = lib::DISPLAY_CONTROL_MONITOR_LAYOUT {
-            Flags: 0,
+            Flags: 0x00000001, // DISPLAY_CONTROL_MONITOR_PRIMARY
             Left: 0,
             Top: 0,
             Width: w,
@@ -32,7 +32,9 @@ impl DispClientContext {
             return Ok(());
         };
         let r = unsafe { send_monitor_layout(self.raw.as_ptr(), 1, &mut mon as *mut _) };
-        dbg!(r);
+        if r != 0 {
+            todo!()
+        }
 
         Ok(())
     }

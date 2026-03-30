@@ -133,7 +133,6 @@ unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
             )
         };
     }
-    println!("{keyboard_layout}");
 
     let callbacks = context.callbacks_mut();
 
