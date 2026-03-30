@@ -14,32 +14,6 @@ use super::RdpContext;
 use super::lib;
 use super::rdp_context::RawRdpContext;
 
-unsafe extern "C" fn begin_paint(context: *mut lib::rdp_context) -> lib::BOOL {
-    let mut raw = NonNull::new(context as *mut RawRdpContext).unwrap();
-    let context = unsafe { raw.as_mut() };
-    let callbacks = context.callbacks_mut();
-
-    if let Err(err) = callbacks.begin_paint(&mut RdpContext::new(raw)) {
-        eprint!("{err}");
-        return 0;
-    }
-
-    1
-}
-
-unsafe extern "C" fn end_paint(context: *mut lib::rdp_context) -> lib::BOOL {
-    let mut raw = NonNull::new(context as *mut RawRdpContext).unwrap();
-    let context = unsafe { raw.as_mut() };
-    let callbacks = context.callbacks_mut();
-
-    if let Err(err) = callbacks.end_paint(&mut RdpContext::new(raw)) {
-        eprint!("{err}");
-        return 0;
-    }
-
-    1
-}
-
 unsafe extern "C" fn on_channel_connected(
     cx: *mut c_void,
     e: *mut lib::ChannelConnectedEventArgs,
@@ -107,6 +81,32 @@ unsafe extern "C" fn on_channel_disconnected(
     }
 
     0
+}
+
+unsafe extern "C" fn begin_paint(context: *mut lib::rdp_context) -> lib::BOOL {
+    let mut raw = NonNull::new(context as *mut RawRdpContext).unwrap();
+    let context = unsafe { raw.as_mut() };
+    let callbacks = context.callbacks_mut();
+
+    if let Err(err) = callbacks.begin_paint(&mut RdpContext::new(raw)) {
+        eprint!("{err}");
+        return 0;
+    }
+
+    1
+}
+
+unsafe extern "C" fn end_paint(context: *mut lib::rdp_context) -> lib::BOOL {
+    let mut raw = NonNull::new(context as *mut RawRdpContext).unwrap();
+    let context = unsafe { raw.as_mut() };
+    let callbacks = context.callbacks_mut();
+
+    if let Err(err) = callbacks.end_paint(&mut RdpContext::new(raw)) {
+        eprint!("{err}");
+        return 0;
+    }
+
+    1
 }
 
 unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
