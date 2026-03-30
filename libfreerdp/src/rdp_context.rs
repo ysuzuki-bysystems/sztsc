@@ -135,13 +135,8 @@ unsafe extern "C" fn client_free(_instance: *mut lib::freerdp, context: *mut lib
 impl OwnedRdpContext {
     pub(super) fn new_client_context<C: Callbacks + 'static>(
         callbacks: C,
-        mut settings: Settings,
+        settings: Settings,
     ) -> Result<Self> {
-        let p = unsafe { settings.raw.as_mut() };
-        p.DynamicResolutionUpdate = 1;
-        p.SupportDisplayControl = 1;
-        let settings = settings.raw.as_ptr();
-
         let mut entrypoint = lib::RDP_CLIENT_ENTRY_POINTS {
             Size: size_of::<lib::RDP_CLIENT_ENTRY_POINTS>() as lib::DWORD,
             Version: lib::RDP_CLIENT_INTERFACE_VERSION,
@@ -152,7 +147,7 @@ impl OwnedRdpContext {
             ClientFree: Some(client_free),
             ClientStart: None,
             ClientStop: None,
-            settings,
+            settings: settings.raw.as_ptr(),
         };
         let context = unsafe { lib::freerdp_client_context_new(&mut entrypoint) };
         let Some(mut context) = ptr::NonNull::new(context.cast::<RawRdpContext>()) else {
