@@ -122,6 +122,19 @@ unsafe extern "C" fn pre_connect(instance: *mut lib::rdp_freerdp) -> lib::BOOL {
     unsafe { super::pubsub::subscribe_channel_connected(pubsub, on_channel_connected) };
     unsafe { super::pubsub::subscribe_channel_disconnected(pubsub, on_channel_disconnected) };
 
+    let mut keyboard_layout = 0;
+    unsafe { lib::freerdp_detect_keyboard_layout_from_system_locale(&mut keyboard_layout) };
+    if keyboard_layout != 0 {
+        unsafe {
+            lib::freerdp_settings_set_uint32(
+                context.common.context.settings,
+                lib::FreeRDP_Settings_Keys_UInt32_FreeRDP_KeyboardLayout,
+                keyboard_layout,
+            )
+        };
+    }
+    println!("{keyboard_layout}");
+
     let callbacks = context.callbacks_mut();
 
     if let Err(err) = callbacks.pre_connect(&mut Freerdp::new(raw)) {

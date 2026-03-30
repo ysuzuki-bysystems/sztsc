@@ -303,12 +303,6 @@ impl RemoteDesktop {
         settings.set_password("123qweASD");
         //settings.set_aad_security(true);
 
-        // jp106
-        settings.set_keyboard_layout(0x00000411);
-        settings.set_keyboard_type(4);
-        settings.set_keyboard_subtype(0);
-        settings.set_keyboard_function_key(12);
-
         let mut cx = lib::new_client_context(self, settings)?;
 
         cx.connect()?;
