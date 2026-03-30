@@ -157,6 +157,15 @@ impl OwnedRdpContext {
         r.callbacks.write(Box::new(callbacks));
         r.initialized_gdi = None;
 
+        // IF not set. end_paint is broken.(Lazily ?)
+        unsafe {
+            lib::freerdp_settings_set_bool(
+                r.common.context.settings,
+                lib::FreeRDP_Settings_Keys_Bool_FreeRDP_SupportGraphicsPipeline,
+                1,
+            )
+        };
+
         unsafe { lib::freerdp_client_start(context.as_ptr().cast()) };
 
         Ok(OwnedRdpContext {
