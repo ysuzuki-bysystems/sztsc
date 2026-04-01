@@ -10,7 +10,7 @@ pub struct DispClientContext {
 
 impl DispClientContext {
     pub(super) fn from_raw(raw: ptr::NonNull<lib::DispClientContext>) -> Self {
-        DispClientContext { raw }
+        Self { raw }
     }
 
     pub fn send_monitor_layout(&mut self, w: u32, h: u32) -> Result<()> {

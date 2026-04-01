@@ -16,10 +16,10 @@ fn main() {
                 .collect::<Vec<_>>(),
         )
         .clang_arg("-Wno-deprecated-declarations")
-        .allowlist_var("PTR_FLAGS_.*|.*_CHANNEL_NAME|RDP_CLIENT_INTERFACE_VERSION")
-        .allowlist_type("DrdynvcClientContext|DispClientContext")
+        .allowlist_var("PTR_FLAGS_.*|.*_CHANNEL_NAME|RDP_CLIENT_INTERFACE_VERSION|CB_.*|CF_.*")
+        .allowlist_type("DispClientContext|CliprdrClientContext|CLIPRDR_.*|CliprdrMsgType")
         //.allowlist_file("")
-        .allowlist_function("(freerdp|gdi)_.*|WaitForMultipleObjects|CreateFileDescriptorEventW|PubSub_Subscribe|PubSub_Unsubscribe")
+        .allowlist_function("(freerdp|gdi)_.*|WaitForMultipleObjects|CreateFileDescriptorEventW|PubSub_Subscribe|PubSub_Unsubscribe|cliprdr_.*")
         //.allowlist_item("")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()

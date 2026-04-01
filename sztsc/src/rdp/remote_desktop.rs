@@ -35,6 +35,97 @@ pub enum RemoteDesktopError {
     AlreadyCreated,
 }
 
+struct CliprdrCallbacks;
+
+impl lib::CliprdrCallbacks for CliprdrCallbacks {
+    fn monitor_ready(
+        &mut self,
+        context: &mut lib::CliprdrClientContext,
+        _monitor_ready: lib::MonitorReady,
+    ) -> libfreerdp::CliprdrCallbackResult<()> {
+        let mut capabilities = lib::Capabilities::default();
+        capabilities.add(lib::GeneralCapability::new(
+            lib::GeneralCapabilityFlags::CB_USE_LONG_FORMAT_NAMES,
+        ));
+        context.client_capabilities(capabilities).unwrap();
+
+        let mut format_list = lib::FormatList::default();
+        format_list.add(lib::FormatId::CfUnicodetext);
+        context.client_format_list(format_list).unwrap();
+
+        Ok(())
+    }
+
+    fn server_capabilities(
+        &mut self,
+        _context: &mut libfreerdp::CliprdrClientContext,
+        _capabilities: libfreerdp::Capabilities,
+    ) -> libfreerdp::CliprdrCallbackResult<()> {
+        Ok(())
+    }
+
+    fn server_format_list(
+        &mut self,
+        context: &mut libfreerdp::CliprdrClientContext,
+        _format_list: libfreerdp::FormatList,
+    ) -> libfreerdp::CliprdrCallbackResult<()> {
+        let response = lib::FormatListResponse::Ok;
+        context.client_format_list_response(response).unwrap();
+
+        let request = lib::FormatDataRequest::new(lib::FormatId::CfUnicodetext);
+        context.client_format_data_request(request).unwrap();
+
+        Ok(())
+    }
+
+    fn server_format_list_response(
+        &mut self,
+        _context: &mut libfreerdp::CliprdrClientContext,
+        _format_list_response: libfreerdp::FormatListResponse,
+    ) -> libfreerdp::CliprdrCallbackResult<()> {
+        Ok(())
+    }
+
+    fn server_format_data_request(
+        &mut self,
+        context: &mut libfreerdp::CliprdrClientContext,
+        _format_data_request: libfreerdp::FormatDataRequest,
+    ) -> libfreerdp::CliprdrCallbackResult<()> {
+        let data = "Hello, World!"
+            .encode_utf16()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let data = data
+            .into_iter()
+            .flat_map(u16::to_ne_bytes)
+            .collect::<Vec<_>>();
+        let response = lib::FormatDataResponse::Ok(data.as_ref());
+        context.client_format_data_response(response).unwrap();
+
+        Ok(())
+    }
+
+    fn server_format_data_response(
+        &mut self,
+        _context: &mut libfreerdp::CliprdrClientContext,
+        format_data_response: libfreerdp::FormatDataResponse,
+    ) -> libfreerdp::CliprdrCallbackResult<()> {
+        let lib::FormatDataResponse::Ok(data) = format_data_response else {
+            return Ok(());
+        };
+
+        let data = data
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .take_while(|v| *v != 0)
+            .collect::<Vec<_>>();
+        let v = String::from_utf16_lossy(&data).to_string();
+        println!("COPIED {}", v);
+
+        Ok(())
+    }
+}
+
 type Result<T> = ::std::result::Result<T, RemoteDesktopError>;
 
 #[derive(Debug)]
@@ -121,19 +212,29 @@ impl lib::Callbacks for RemoteDesktop {
         Ok(())
     }
 
-    fn on_channel_connected(&mut self, dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
-        match dvc {
-            lib::Dvc::Disp(disp) => {
+    fn on_channel_connected(&mut self, channel: lib::Channel) -> libfreerdp::CallbackResult<()> {
+        match channel {
+            lib::Channel::Disp(disp) => {
                 self.shared.borrow_mut().disp = Some(disp);
+            }
+            lib::Channel::Cliprdr(mut cliprdr) => {
+                cliprdr.set_callbacks(CliprdrCallbacks);
+                self.shared.borrow_mut().cliprdr = Some(cliprdr);
             }
         };
         Ok(())
     }
 
-    fn on_channel_disconnected(&mut self, dvc: lib::Dvc) -> libfreerdp::CallbackResult<()> {
-        match dvc {
-            lib::Dvc::Disp(_) => {
+    fn on_channel_disconnected(
+        &mut self,
+        channel: lib::ChannelName,
+    ) -> libfreerdp::CallbackResult<()> {
+        match channel {
+            lib::ChannelName::Disp => {
                 self.shared.borrow_mut().disp = None;
+            }
+            lib::ChannelName::Cliprdr => {
+                self.shared.borrow_mut().cliprdr = None;
             }
         };
         Ok(())
@@ -215,6 +316,7 @@ impl lib::Callbacks for RemoteDesktop {
 #[derive(Debug, Default)]
 struct SharedContext {
     disp: Option<lib::DispClientContext>,
+    cliprdr: Option<lib::CliprdrClientContext>,
 }
 
 #[derive(Debug, Default)]

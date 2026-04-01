@@ -2,9 +2,8 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 
-use crate::FreerdpError;
-
 use super::Callbacks;
+use super::FreerdpError;
 use super::Gdi;
 use super::HANDLE;
 use super::OwnedGdi;
@@ -112,7 +111,7 @@ unsafe extern "C" fn global_init() -> lib::BOOL {
 unsafe extern "C" fn global_uninit() {}
 unsafe extern "C" fn client_new(
     instance: *mut lib::freerdp,
-    _context: *mut lib::rdpContext,
+    context: *mut lib::rdpContext,
 ) -> lib::BOOL {
     let Some(mut instance) = ptr::NonNull::new(instance) else {
         eprintln!("instance: null");
@@ -120,6 +119,31 @@ unsafe extern "C" fn client_new(
     };
     let instance = unsafe { instance.as_mut() };
     trampolines::setup_instance(instance);
+
+    let Some(mut context) = ptr::NonNull::new(context) else {
+        eprintln!("context: null");
+        return 0;
+    };
+    let context = unsafe { context.as_mut() };
+    let settings = context.settings;
+
+    // IF not set. end_paint is broken.(Lazily ?)
+    unsafe {
+        lib::freerdp_settings_set_bool(
+            settings,
+            lib::FreeRDP_Settings_Keys_Bool_FreeRDP_SupportGraphicsPipeline,
+            1,
+        )
+    };
+
+    // enable cliprdr
+    unsafe {
+        lib::freerdp_settings_set_bool(
+            settings,
+            lib::FreeRDP_Settings_Keys_Bool_FreeRDP_RedirectClipboard,
+            1,
+        )
+    };
 
     1
 }
@@ -156,15 +180,6 @@ impl OwnedRdpContext {
         let r = unsafe { context.as_mut() };
         r.callbacks.write(Box::new(callbacks));
         r.initialized_gdi = None;
-
-        // IF not set. end_paint is broken.(Lazily ?)
-        unsafe {
-            lib::freerdp_settings_set_bool(
-                r.common.context.settings,
-                lib::FreeRDP_Settings_Keys_Bool_FreeRDP_SupportGraphicsPipeline,
-                1,
-            )
-        };
 
         unsafe { lib::freerdp_client_start(context.as_ptr().cast()) };
 

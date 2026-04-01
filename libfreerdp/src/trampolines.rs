@@ -7,8 +7,10 @@ use std::ffi::c_void;
 use std::ptr;
 use std::ptr::NonNull;
 
+use super::Channel;
+use super::ChannelName;
+use super::CliprdrClientContext;
 use super::DispClientContext;
-use super::Dvc;
 use super::Freerdp;
 use super::RdpContext;
 use super::lib;
@@ -18,8 +20,8 @@ unsafe extern "C" fn on_channel_connected(
     cx: *mut c_void,
     e: *mut lib::ChannelConnectedEventArgs,
 ) -> c_int {
-    let cx = cx.cast::<RawRdpContext>();
-    let cx = unsafe { cx.as_mut() }.unwrap();
+    let mut cxp = ptr::NonNull::new(cx.cast::<RawRdpContext>()).unwrap();
+    let cx = unsafe { cxp.as_mut() };
 
     let e = unsafe { e.as_mut() }.unwrap();
     let name = unsafe { CStr::from_ptr(e.name) };
@@ -30,7 +32,20 @@ unsafe extern "C" fn on_channel_connected(
                 eprintln!("p_interface: null");
                 return 1;
             };
-            let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
+            let dvc = Channel::Disp(DispClientContext::from_raw(raw));
+            if let Err(err) = cx.callbacks_mut().on_channel_connected(dvc) {
+                eprintln!("{err}");
+                return 1;
+            };
+        }
+
+        name if lib::CLIPRDR_SVC_CHANNEL_NAME == name => {
+            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::CliprdrClientContext>())
+            else {
+                eprintln!("p_interface: null");
+                return 1;
+            };
+            let dvc = Channel::Cliprdr(CliprdrClientContext::from_raw(raw));
             if let Err(err) = cx.callbacks_mut().on_channel_connected(dvc) {
                 eprintln!("{err}");
                 return 1;
@@ -51,20 +66,35 @@ unsafe extern "C" fn on_channel_disconnected(
     cx: *mut c_void,
     e: *mut lib::ChannelDisconnectedEventArgs,
 ) -> c_int {
-    let cx = cx.cast::<RawRdpContext>();
-    let cx = unsafe { cx.as_mut() }.unwrap();
+    let mut cxp = ptr::NonNull::new(cx.cast::<RawRdpContext>()).unwrap();
+    let cx = unsafe { cxp.as_mut() };
 
     let e = unsafe { e.as_mut() }.unwrap();
     let name = unsafe { CStr::from_ptr(e.name) };
 
     match name.to_bytes_with_nul() {
         name if lib::DISP_DVC_CHANNEL_NAME == name => {
-            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::DispClientContext>()) else {
+            if let Err(err) = cx
+                .callbacks_mut()
+                .on_channel_disconnected(ChannelName::Disp)
+            {
+                eprintln!("{err}");
+                return 1;
+            };
+        }
+
+        name if lib::CLIPRDR_SVC_CHANNEL_NAME == name => {
+            let Some(raw) = ptr::NonNull::new(e.pInterface.cast::<lib::CliprdrClientContext>())
+            else {
                 eprintln!("p_interface: null");
                 return 1;
             };
-            let dvc = Dvc::Disp(DispClientContext::from_raw(raw));
-            if let Err(err) = cx.callbacks_mut().on_channel_disconnected(dvc) {
+            CliprdrClientContext::drop_context_custom(raw);
+
+            if let Err(err) = cx
+                .callbacks_mut()
+                .on_channel_disconnected(ChannelName::Cliprdr)
+            {
                 eprintln!("{err}");
                 return 1;
             };

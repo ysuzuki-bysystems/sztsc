@@ -1,6 +1,7 @@
 use thiserror::Error;
 
-use super::Dvc;
+use super::Channel;
+use super::ChannelName;
 use super::Freerdp;
 use super::RdpContext;
 
@@ -37,6 +38,6 @@ pub trait Callbacks {
     fn begin_paint(&mut self, instance: &mut RdpContext) -> CallbackResult<()>;
     fn end_paint(&mut self, instance: &mut RdpContext) -> CallbackResult<()>;
 
-    fn on_channel_connected(&mut self, interface: Dvc) -> CallbackResult<()>;
-    fn on_channel_disconnected(&mut self, interface: Dvc) -> CallbackResult<()>;
+    fn on_channel_connected(&mut self, interface: Channel) -> CallbackResult<()>;
+    fn on_channel_disconnected(&mut self, interface: ChannelName) -> CallbackResult<()>;
 }
