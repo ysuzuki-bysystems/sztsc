@@ -1,0 +1,8 @@
+[package]
+name = "clipboard"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = "2.0.18"
+x11rb = { version = "0.13.2", features = ["xfixes"] }

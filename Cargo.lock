@@ -372,6 +372,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "clipboard"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.18",
+ "x11rb",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"

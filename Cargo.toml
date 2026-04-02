@@ -5,5 +5,5 @@ members = [
     "libfreerdp-sys",
     "libfreerdp",
     "sztsc",
-    "sztsc-authcode",
+    "sztsc-authcode", "clipboard",
 ]
